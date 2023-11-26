@@ -1,11 +1,11 @@
-﻿using System.Collections;
+﻿using Cysharp.Threading.Tasks;
 
 namespace Laboratory.Core
 {
     public interface ILab
     {
-        public IEnumerator Work();
-        public IEnumerator Reboot();
-        public IEnumerator Break();
+        public UniTask Work();
+        public UniTask Reboot();
+        public UniTask Break();
     }
 }

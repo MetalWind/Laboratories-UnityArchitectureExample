@@ -37,11 +37,8 @@ namespace Laboratory.Core
 
         public void Invoke<T>(T param)
         {
-            if (!_allCallbacksLists.ContainsKey(typeof(T)))
-            {
-                return;
-            }
-
+            if (!_allCallbacksLists.ContainsKey(typeof(T))) return;
+            
             List<EventCallback> allCallbacks = _allCallbacksLists[typeof(T)];
             foreach (var callback in allCallbacks)
             {

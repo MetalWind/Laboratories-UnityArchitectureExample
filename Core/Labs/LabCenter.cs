@@ -1,5 +1,5 @@
-﻿using System;
-using System.Collections;
+﻿using Cysharp.Threading.Tasks;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Zenject;
@@ -20,39 +20,26 @@ namespace Laboratory.Core
             CreateAllLabs(factory);
         }
 
-        public IEnumerator SetNewContext(LabContext labContext)
+        public async UniTask SetNewContext(LabContext labContext)
         {
-            List<Type> context = labContext.GetTypes();
+            List<ILab> neededLabs = FindLabsByContext(labContext);
 
-            if (context == null) yield return null;
-            if (context.Count == 0) yield return null;
-
-
-            List<ILab> neededLabs = context.Where(c => _labs.ContainsKey(c))
-                                           .Select(c => _labs[c])
-                                           .ToList();
-
-
-            List<ILab> commonObjects = _activeLabs.Intersect(neededLabs).ToList();
             List<ILab> extraObjects = _activeLabs.Except(neededLabs).ToList();
+            List<ILab> commonObjects = _activeLabs.Intersect(neededLabs).ToList();
             List<ILab> missingObjects = neededLabs.Except(_activeLabs).ToList();
 
-            foreach (var extra in extraObjects)
-            {
-                yield return AutonomCoroutine.StartRoutine(extra.Break());
-                _activeLabs.Remove(extra);
-            }
+            await PerformBreakFor(extraObjects);
+            await PerformRebootFor(commonObjects);
+            await PerformWorkFor(missingObjects);
+        }
 
-            foreach (var missing in missingObjects)
-            {
-                yield return AutonomCoroutine.StartRoutine(missing.Work());
-                _activeLabs.Add(missing);
-            }
+        public async UniTask AddMoreContecst(LabContext labContext)
+        {
+            List<ILab> neededLabs = FindLabsByContext(labContext);
 
-            foreach (var common in commonObjects)
-            {
-                yield return AutonomCoroutine.StartRoutine(common.Reboot());
-            }
+            List<ILab> missingObjects = neededLabs.Except(_activeLabs).ToList();
+
+            await PerformWorkFor(missingObjects);
         }
 
         private void CreateAllLabs(TypeObjFactory factory)
@@ -62,6 +49,59 @@ namespace Laboratory.Core
             {
                 _labs[lab.GetType()] = lab;
             }
+        }
+
+        private UniTask PerformBreakFor(List<ILab> extraLabs)
+        {
+            foreach (ILab extraLab in extraLabs)
+            {
+                extraLab.Break();
+                _activeLabs.Remove(extraLab);
+            }
+
+            return UniTask.CompletedTask;
+        }
+
+        private UniTask PerformRebootFor(List<ILab> commonLabs)
+        {
+            foreach (ILab common in commonLabs)
+            {
+                common.Reboot();
+            }
+
+            return UniTask.CompletedTask;
+        }
+
+        private async UniTask PerformWorkFor(List<ILab> missingLabs) 
+        {
+            foreach (ILab missing in missingLabs)
+            {
+                if (missing is IWarmingLab warming)
+                {
+                    await warming.WarmUp();
+                }
+            }
+
+            foreach (var missing in missingLabs)
+            {
+                missing.Work().Forget();
+                _activeLabs.Add(missing);
+            }
+        }
+
+        private List<ILab> FindLabsByContext(LabContext labContext)
+        {
+            List<Type> context = labContext.GetTypes();
+
+            if (context == null) return default;
+            if (context.Count == 0) return default;
+
+
+            List<ILab> neededLabs = context.Where(c => _labs.ContainsKey(c))
+                                           .Select(c => _labs[c])
+                                           .ToList();
+
+            return neededLabs;
         }
     }
 }
