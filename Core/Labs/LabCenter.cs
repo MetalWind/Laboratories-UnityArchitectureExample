@@ -27,7 +27,9 @@ namespace Laboratory.Core
             List<ILab> extraObjects = _activeLabs.Except(neededLabs).ToList();
             List<ILab> commonObjects = _activeLabs.Intersect(neededLabs).ToList();
             List<ILab> missingObjects = neededLabs.Except(_activeLabs).ToList();
+            List<IWarmingLab> warmingLabs = FindWarmingLabs(missingObjects);
 
+            await PerformWarmUpFor(warmingLabs);
             await PerformBreakFor(extraObjects);
             await PerformRebootFor(commonObjects);
             await PerformWorkFor(missingObjects);
@@ -38,9 +40,36 @@ namespace Laboratory.Core
             List<ILab> neededLabs = FindLabsByContext(labContext);
 
             List<ILab> missingObjects = neededLabs.Except(_activeLabs).ToList();
+            List<IWarmingLab> warmingLabs = FindWarmingLabs(missingObjects);
 
+            await PerformWarmUpFor(warmingLabs);
             await PerformWorkFor(missingObjects);
         }
+
+        public async UniTask ManualInvokeWarmUp(LabContext labContext) 
+        {
+            List<ILab> neededLabs = FindLabsByContext(labContext);
+            List<ILab> missingObjects = neededLabs.Except(_activeLabs).ToList();
+            List<IWarmingLab> warmingLabs = FindWarmingLabs(missingObjects);
+            await PerformWarmUpFor(warmingLabs);
+        }
+        public async UniTask ManualInvokeWork(LabContext labContext) 
+        {
+            List<ILab> neededLabs = FindLabsByContext(labContext);
+            List<ILab> missingObjects = neededLabs.Except(_activeLabs).ToList();
+            await PerformWorkFor(missingObjects);
+        }
+        public async UniTask ManualInvokeReboot(LabContext labContext) 
+        {
+            List<ILab> neededLabs = FindLabsByContext(labContext);
+            await PerformRebootFor(neededLabs);
+        }
+        public async UniTask ManualInvokeBreak(LabContext labContext) 
+        {
+            List<ILab> neededLabs = FindLabsByContext(labContext);
+            await PerformBreakFor(neededLabs);
+        }
+
 
         private void CreateAllLabs(TypeObjFactory factory)
         {
@@ -48,6 +77,14 @@ namespace Laboratory.Core
             foreach (ILab lab in labs)
             {
                 _labs[lab.GetType()] = lab;
+            }
+        }
+
+        private async UniTask PerformWarmUpFor(List<IWarmingLab> warmingLabs)
+        {
+            foreach(IWarmingLab lab in warmingLabs)
+            {
+                await lab.WarmUp();
             }
         }
 
@@ -102,6 +139,21 @@ namespace Laboratory.Core
                                            .ToList();
 
             return neededLabs;
+        }
+
+        private List<IWarmingLab> FindWarmingLabs(List<ILab> labs)
+        {
+            List<IWarmingLab> warmingLabs = new List<IWarmingLab>();
+
+            foreach (ILab lab in labs)
+            {
+                if(lab is IWarmingLab warmingLab)
+                {
+                    warmingLabs.Add(warmingLab);
+                }
+            }
+
+            return warmingLabs;
         }
     }
 }

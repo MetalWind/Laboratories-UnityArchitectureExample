@@ -2,7 +2,7 @@
 
 namespace Laboratory.Core
 {
-    public abstract class CoreInstaller : MonoInstaller
+    public class CoreInstaller : MonoInstaller
     {
         public override void InstallBindings()
         {
@@ -11,6 +11,6 @@ namespace Laboratory.Core
             Container.Bind<LabCenter>().AsSingle().NonLazy();
         }
 
-        public abstract void BindStateMachine(); 
+        public virtual void BindStateMachine() { } 
     }
 }
